@@ -127,7 +127,7 @@ del distilledModel
 
 numBits = [2, 4]
 for numBit in numBits:
-    distilled_quantized_model_name = 'cifar10_distilled_quantized{}bits'.format(numBit)
+    distilled_quantized_model_name = 'dann18_distilled_quantized{}bits'.format(numBit)
 
     distilled_quantized_model_path = os.path.join(dann18modelsFolder, distilled_quantized_model_name)
     distilled_quantized_model = SmallCNNModel()
@@ -175,8 +175,11 @@ for x in dann18Manager.list_models():
         continue
     model = load_model_from_name(x)
     reported_accuracy = dann18Manager.load_metadata(x)[1]['predictionAccuracy'][-1]
-    #pred_accuracy = cnn_hf.evaluateModel(model, test_loader, fastEvaluation=False)
-    pred_accuracy=0
+    pred_accuracy = cnn_hf.evaluateModel(
+        model, test_loader, fastEvaluation=False,
+        confusion_matrix_path=f"results/{x}_cfm.png",
+        tsne_path=f"results/{x}_tsne.png",
+    )
     print('Model "{}" ==> Prediction accuracy: {:2f}% == Reported accuracy: {:2f}%'.format(x,
                                                         pred_accuracy*100, reported_accuracy*100))
     curr_num_bit = dann18Manager.load_metadata(x)[0].get('numBits', None)
@@ -207,8 +210,12 @@ for x in dann18Manager.list_models():
                         continue
                     p.data = quantization.uniformQuantization(p.data, s=2**numBit, type_of_scaling='linear',
                                                               bucket_size=256)[0]
-                #predAcc = cnn_hf.evaluateModel(model, test_loader, fastEvaluation=False)
-                predAcc =0
+                predAcc = cnn_hf.evaluateModel(
+                    model, test_loader, fastEvaluation=False,
+                    confusion_matrix_path=f"results/{x}_cfm_check_pm.png",
+                    tsne_path=f"results/{x}_tsne_check_pm.png",
+                )
+                # predAcc =0
                 print('PM quantization of model "{}" with "{}" bits and bucketing 256: {:2f}%'.format(x, numBit, predAcc * 100))
                 quant_fun = functools.partial(quantization.uniformQuantization, s=2**numBit, bucket_size=None)
                 actual_bit_huffmman = qhf.get_huffman_encoding_mean_bit_length(model.parameters(), quant_fun,

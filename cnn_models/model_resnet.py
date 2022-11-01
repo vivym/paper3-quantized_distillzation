@@ -132,6 +132,8 @@ class ResNet(nn.Module):
         self.network_type = network_type
         # different model config between ImageNet and CIFAR
 
+        self.return_features = False
+
         if network_type == "ImageNet":
             self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -235,6 +237,7 @@ class ResNet(nn.Module):
             x = F.avg_pool2d(x, 4)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
+
         return x
 
 

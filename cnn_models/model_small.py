@@ -23,6 +23,8 @@ class SmallCNNModel(nn.Module):
         self.source_fc = nn.Linear(256, num_classes)
         self.softmax = nn.Softmax(dim=1)
 
+        self.return_features = False
+
         #self.class_classifier = nn.Sequential()
         # self.class_classifier.add_module('c_fc1', nn.Linear(50 * 4 * 4, 100))
         # self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(100))
@@ -76,4 +78,7 @@ class SmallCNNModel(nn.Module):
         #class_output = self.class_classifier(feature)
         domain_output = self.domain_classifier(reverse_feature)
 
-        return p_source, domain_output
+        if self.return_features:
+            return p_source, domain_output, source_share
+        else:
+            return p_source, domain_output

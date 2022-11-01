@@ -6,6 +6,10 @@ import time
 import numpy as np
 import helpers.functions as mhf
 import random
+from sklearn.metrics import confusion_matrix
+import seaborn as sn
+import pandas as pd
+import matplotlib.pyplot as plt
 
 USE_CUDA = torch.cuda.is_available()
 
@@ -27,7 +31,11 @@ def time_forward_pass(model, train_loader):
     return end_time - start_time
 
 
-def evaluateModel(model, testLoader, fastEvaluation=True, maxExampleFastEvaluation=10000, k=1):
+def evaluateModel(
+    model, testLoader, fastEvaluation=True, maxExampleFastEvaluation=10000, k=1,
+    confusion_matrix_path = None,
+    tsne_path = None,
+):
 
     'if fastEvaluation is True, it will only check a subset of *maxExampleFastEvaluation* images of the test set'
     # 是将测试数据集进行一部分验证来求解出相应的正确率
@@ -36,25 +44,75 @@ def evaluateModel(model, testLoader, fastEvaluation=True, maxExampleFastEvaluati
     correctClass = 0
     totalNumExamples = 0
 
+    y_pred = []
+    y_true = []
+    features_list = []
+
+    if tsne_path is not None:
+        model.return_features = True
+
     with torch.no_grad():
         for idx_minibatch, data in enumerate(testLoader):
-
             # get the inputs
             inputs, labels = data
+            y_true.append(labels)
+
             inputs, labels = Variable(inputs), Variable(labels)
             if USE_CUDA:
                 inputs = inputs.cuda()
                 labels = labels.cuda()
 
-            outputs, _ = model(inputs)
+            if tsne_path is not None:
+                outputs, _, features = model(inputs)
+                features_list.append(features)
+            else:
+                outputs, _ = model(inputs)
+
             _, topk_predictions = outputs.topk(k, dim=1, largest=True, sorted=True)
             topk_predictions = topk_predictions.t()
             correct = topk_predictions.eq(labels.view(1, -1).expand_as(topk_predictions))
             correctClass += correct.reshape(-1).float().sum(0, keepdim=True).data.item()
             totalNumExamples += len(labels)
 
+            preds = outputs.argmax(1)
+
+            y_pred.append(preds)
+
             if fastEvaluation is True and totalNumExamples > maxExampleFastEvaluation:
                 break
+
+    model.return_features = False
+
+    y_pred = torch.cat(y_pred, dim=0).cpu().numpy()
+    y_true = torch.cat(y_true, dim=0).cpu().numpy()
+
+    if confusion_matrix_path is not None:
+
+
+        classes = [0, 1, 2]
+
+        cf_matrix = confusion_matrix(y_true, y_pred)
+        df_cm = pd.DataFrame(cf_matrix/np.sum(cf_matrix) *10, index = [i for i in classes],
+                            columns = [i for i in classes])
+        plt.figure(figsize = (3, 3))
+        sn.heatmap(df_cm, annot=True)
+        plt.savefig(confusion_matrix_path)
+
+    if tsne_path is not None:
+        from sklearn.manifold import TSNE
+
+        features = torch.cat(features_list, dim=0).cpu().numpy()
+        features_2d = TSNE(
+            n_components=2, learning_rate="auto",
+            init="random", perplexity=3,
+        ).fit_transform(features)
+
+        print("features_2d", features_2d.shape)
+
+        plt.figure(figsize=(12, 12))
+        for i, color in zip(range(3), ["red", "green", "blue"]):
+            plt.scatter(features_2d[y_true == i, 0], features_2d[y_true == i, 1], c=color)
+        plt.savefig(tsne_path)
 
     return correctClass / totalNumExamples
 
