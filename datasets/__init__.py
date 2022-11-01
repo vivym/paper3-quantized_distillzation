@@ -10,11 +10,11 @@ except:pass
 
 from .CIFAR10 import CIFAR10
 from .CIFAR100 import CIFAR100
-from .PennTreeBank import PennTreeBank
+# from .PennTreeBank import PennTreeBank
 from .ImageNet12 import ImageNet12
-from .translation_datasets import multi30k_DE_EN, onmt_integ_dataset, WMT13_DE_EN
+# from .translation_datasets import multi30k_DE_EN, onmt_integ_dataset, WMT13_DE_EN
 from .MNIST import MNIST
 from .customs_datasets import LoadingTensorsDataset
 
-__all__ = ('CIFAR10', 'PennTreeBank', 'WMT13_DE_EN', 'ImageNet12', 'multi30k_DE_EN',
-           'onmt_integ_dataset', 'CIFAR100', 'MNIST', 'LoadingTensorsDataset')
+__all__ = ('CIFAR10', 'ImageNet12',
+           'CIFAR100', 'MNIST', 'LoadingTensorsDataset')

@@ -15,7 +15,7 @@ import helpers.functions as mhf
 datasets.BASE_DATA_FOLDER = '...'
 # datasets.BASE_DATA_FOLDER = '/home/all_data/saved_datasets'
 # SAVED_MODELS_FOLDER = '/home/likewise-open/SENSETIME/mazhenya/PycharmProjects/quantized_distillation/models'
-SAVED_MODELS_FOLDER = '/home/likewise-open/SENSETIME/mazhenya/PycharmProjects/quantized_distillation/models'
+SAVED_MODELS_FOLDER = './models'
 USE_CUDA = torch.cuda.is_available()
 
 #print('CUDA_VISIBLE_DEVICES: {}'.format(os.environ['CUDA_VISIBLE_DEVICES']))

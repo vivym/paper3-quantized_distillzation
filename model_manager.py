@@ -366,8 +366,8 @@ class ModelManager(object):
         if model_name not in self.saved_models:
             raise ValueError('The model "{}" is not present in the list of models saved'.format(model_name))
 
-        if len(self.saved_models[model_name]) - 1 < 1:
-            raise ValueError("The model specified hasn't been trained yet")
+        # if len(self.saved_models[model_name]) - 1 < 1:
+        #     raise ValueError("The model specified hasn't been trained yet")
 
         try:
             path_saved_model = self.saved_models[model_name][idx_run].path_saved_model
