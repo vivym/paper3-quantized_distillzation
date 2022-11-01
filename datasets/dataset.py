@@ -21,10 +21,10 @@ class Mydataset(Dataset):
     def __len__(self):
         return len(self.datas)
 
-def dataloader(train_data_path="./train_X_t.npy",
-               train_label_path="./train_Y_t.npy",
-               test_data_path="./test_X_t.npy",
-               test_label_path="./test_Y_t.npy",
+def dataloader(train_data_path="./DANN18/train_X_t.npy",
+               train_label_path="./DANN18/train_Y_t.npy",
+               test_data_path="./DANN18/test_X_t.npy",
+               test_label_path="./DANN18/test_Y_t.npy",
                batch_size=32,  # 后期看要不要改成128
                num_worker=4):
 	train_transform = transforms.Compose([

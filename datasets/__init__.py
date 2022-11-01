@@ -15,6 +15,7 @@ from .ImageNet12 import ImageNet12
 # from .translation_datasets import multi30k_DE_EN, onmt_integ_dataset, WMT13_DE_EN
 from .MNIST import MNIST
 from .customs_datasets import LoadingTensorsDataset
+from .dataset import dataloader
 
 __all__ = ('CIFAR10', 'ImageNet12',
            'CIFAR100', 'MNIST', 'LoadingTensorsDataset')

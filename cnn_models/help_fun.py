@@ -36,24 +36,25 @@ def evaluateModel(model, testLoader, fastEvaluation=True, maxExampleFastEvaluati
     correctClass = 0
     totalNumExamples = 0
 
-    for idx_minibatch, data in enumerate(testLoader):
+    with torch.no_grad():
+        for idx_minibatch, data in enumerate(testLoader):
 
-        # get the inputs
-        inputs, labels = data
-        inputs, labels = Variable(inputs, volatile=True), Variable(labels)
-        if USE_CUDA:
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+            # get the inputs
+            inputs, labels = data
+            inputs, labels = Variable(inputs), Variable(labels)
+            if USE_CUDA:
+                inputs = inputs.cuda()
+                labels = labels.cuda()
 
-        outputs = model(inputs)
-        _, topk_predictions = outputs.topk(k, dim=1, largest=True, sorted=True)
-        topk_predictions = topk_predictions.t()
-        correct = topk_predictions.eq(labels.view(1, -1).expand_as(topk_predictions))
-        correctClass += correct.view(-1).float().sum(0, keepdim=True).data[0]
-        totalNumExamples += len(labels)
+            outputs, _ = model(inputs)
+            _, topk_predictions = outputs.topk(k, dim=1, largest=True, sorted=True)
+            topk_predictions = topk_predictions.t()
+            correct = topk_predictions.eq(labels.view(1, -1).expand_as(topk_predictions))
+            correctClass += correct.reshape(-1).float().sum(0, keepdim=True).data.item()
+            totalNumExamples += len(labels)
 
-        if fastEvaluation is True and totalNumExamples > maxExampleFastEvaluation:
-            break
+            if fastEvaluation is True and totalNumExamples > maxExampleFastEvaluation:
+                break
 
     return correctClass / totalNumExamples
 
@@ -84,9 +85,11 @@ def forward_and_backward(model, batch, idx_batch, epoch, criterion=None,
         labels = labels.cuda()
 
     # forward + backward + optimize
-    outputs = model(inputs)
+    outputs, domain_outputs = model(inputs)
 
     count_asked_teacher = 0
+
+    loss_domain = criterion(domain_outputs, torch.zeros_like(domain_outputs))
 
     if use_distillation_loss:
         #if cutoff_entropy_value_distillation is not None, we use the distillation loss only on the examples
@@ -112,8 +115,8 @@ def forward_and_backward(model, batch, idx_batch, epoch, criterion=None,
         else:
             raise ValueError('ask_teacher_strategy is incorrectly formatted')
 
-        index_distillation_loss = torch.arange(0, outputs.size(0))[mask_distillation_loss.view(-1, 1)].long()
-        inverse_idx_distill_loss = torch.arange(0, outputs.size(0))[1-mask_distillation_loss.view(-1, 1)].long()
+        index_distillation_loss = torch.arange(0, outputs.size(0))[:, None][mask_distillation_loss.view(-1, 1)].long()
+        inverse_idx_distill_loss = torch.arange(0, outputs.size(0))[:, None][1-mask_distillation_loss.view(-1, 1)].long()
         if USE_CUDA:
             index_distillation_loss = index_distillation_loss.cuda()
             inverse_idx_distill_loss = inverse_idx_distill_loss.cuda()
@@ -131,7 +134,7 @@ def forward_and_backward(model, batch, idx_batch, epoch, criterion=None,
             # if index_distillation_loss is not empty
             volatile_inputs = Variable(inputs.data[index_distillation_loss, :], requires_grad=False)
             if USE_CUDA: volatile_inputs = volatile_inputs.cuda()
-            outputsTeacher = teacher_model(volatile_inputs).detach()
+            outputsTeacher = teacher_model(volatile_inputs)[0].detach()
             loss_masked = weight_teacher_loss * temperature_distillation**2 * KLDivLossFunction(
                     logSoftmaxFunction(outputs[index_distillation_loss, :]/ temperature_distillation),
                     softmaxFunction(outputsTeacher / temperature_distillation))
@@ -140,22 +143,23 @@ def forward_and_backward(model, batch, idx_batch, epoch, criterion=None,
         else:
             loss_masked = 0
 
-        if inverse_idx_distill_loss.size() != torch.Size():
+        if inverse_idx_distill_loss.size() != torch.Size() and inverse_idx_distill_loss.shape[0] > 0:
             #if inverse_idx_distill is not empty
             loss_normal = criterion(outputs[inverse_idx_distill_loss, :], labels[inverse_idx_distill_loss])
         else:
             loss_normal = 0
-        loss = loss_masked + loss_normal
+        loss = loss_masked + loss_normal + loss_domain
+        # print("loss", loss_masked, loss_normal, loss_domain)
     else:
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs, labels) + loss_domain
 
     loss.backward()
 
     if return_more_info:
         count_total = inputs.size(0)
-        return loss.data[0], count_asked_teacher, count_total
+        return loss.data.item(), count_asked_teacher, count_total
     else:
-        return loss.data[0]
+        return loss.data.item()
 
 def add_gradient_noise(model, idx_batch, epoch, number_minibatches_per_epoch):
     # Adding random gaussian noise as in the paper "Adding gradient noise improves learning

@@ -5,12 +5,8 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
 import numpy as np
-from data_loader import GetLoader
 import dataset
-from torchvision import datasets
-from torchvision import transforms
 from model import CNNModel
-from test import test
 from multiprocessing import freeze_support
 
 # freeze_support()
@@ -111,7 +107,7 @@ if __name__ == '__main__':
             p = float(i + epoch * len_dataloader) / n_epoch / len_dataloader
             alpha = 2. / (1. + np.exp(-10 * p)) - 1
             # training model using source data
-            data_source = data_source_iter.next()
+            data_source = next(data_source_iter)
             s_img, s_label = data_source
 
             my_net.zero_grad()
@@ -134,7 +130,7 @@ if __name__ == '__main__':
             err_s_domain = loss_domain(domain_output, domain_label)
 
             # training model using target data
-            data_target = data_target_iter.next()
+            data_target = next(data_target_iter)
             t_img, t_label = data_target
 
             batch_size = len(t_label)

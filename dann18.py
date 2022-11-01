@@ -10,7 +10,8 @@ import copy
 import quantization.help_functions as qhf
 import functools
 import helpers.functions as mhf
-from cnn_models.wide_resnet import Wide_ResNet
+from cnn_models.model import CNNModel
+from cnn_models.model_small import SmallCNNModel
 
 
 datasets.BASE_DATA_FOLDER = '...'
@@ -30,101 +31,92 @@ try:
 except:pass
 
 
-cifar10Manager = model_manager.ModelManager('model_manager_cifar10_wideResNet.tst',
+dann18Manager = model_manager.ModelManager('model_manager_dann18.tst',
                                             'model_manager', create_new_model_manager=True)
-cifar10modelsFolder = os.path.join(SAVED_MODELS_FOLDER, 'cifar10_wideResNet')
+dann18modelsFolder = os.path.join(SAVED_MODELS_FOLDER, 'dann18_cnn')
 
-for x in cifar10Manager.list_models():
-    if cifar10Manager.get_num_training_runs(x) >= 1:
+for x in dann18Manager.list_models():
+    if dann18Manager.get_num_training_runs(x) >= 1:
         s = '{}; Last prediction acc: {}, Best prediction acc: {}'.format(x,
-                                            cifar10Manager.load_metadata(x)[1]['predictionAccuracy'][-1],
-                                            max(cifar10Manager.load_metadata(x)[1]['predictionAccuracy']))
+                                            dann18Manager.load_metadata(x)[1]['predictionAccuracy'][-1],
+                                            max(dann18Manager.load_metadata(x)[1]['predictionAccuracy']))
         print(s)
 try:
-    os.mkdir(cifar10modelsFolder)
+    os.mkdir(dann18modelsFolder)
 except:pass
 
-epochsToTrainCIFAR10 = 1
-epochsToTrainCIFAR10_diffquant = 1
+epochsToTrain = 10
 
 batch_size = 100
 if batch_size % NUM_GPUS != 0:
     raise ValueError('Batch size: {} must be a multiple of the number of gpus:{}'.format(batch_size, NUM_GPUS))
 
-cifar10 = datasets.CIFAR10()
-train_loader, test_loader = cifar10.getTrainLoader(batch_size), cifar10.getTestLoader(batch_size)
+train_loader, test_loader, original_loader = datasets.dataloader()
+# train_loader, test_loader = dann18.getTrainLoader(batch_size), dann18.getTestLoader(batch_size)
 
-TRAIN_TEACHER_MODEL = True
+TRAIN_TEACHER_MODEL = False
 TRAIN_SMALLER_MODEL = True
-TRAIN_DISTILLED_MODEL = False
-TRAIN_DISTILLED_QUANTIZED_MODEL = False
+TRAIN_DISTILLED_MODEL = True
+TRAIN_DISTILLED_QUANTIZED_MODEL = True
 CHECK_PM_QUANTIZATION = True
 
 # Teacher model
-teacher_model_name = 'cifar10_teacher'
-teacherModelPath = os.path.join(cifar10modelsFolder, teacher_model_name)
-teacherOptions = {'widen_factor':20, 'depth':28, 'dropout_rate':0.3, 'num_classes':10}
-teacherModel = Wide_ResNet(**teacherOptions)
+teacher_model_name = 'dann18_teacher'
+teacherModelPath = os.path.join(dann18modelsFolder, teacher_model_name)
+teacherModel = CNNModel()
 if USE_CUDA: teacherModel = teacherModel.cuda()
 if NUM_GPUS > 1:
     teacherModel = torch.nn.parallel.DataParallel(teacherModel)
 
-if teacher_model_name not in cifar10Manager.saved_models:
-    cifar10Manager.add_new_model(teacher_model_name, teacherModelPath,
-            arguments_creator_function=teacherOptions)
+if teacher_model_name not in dann18Manager.saved_models:
+    dann18Manager.add_new_model(teacher_model_name, teacherModelPath)
 if TRAIN_TEACHER_MODEL:
-    cifar10Manager.train_model(teacherModel, model_name=teacher_model_name,
+    dann18Manager.train_model(teacherModel, model_name=teacher_model_name,
                                train_function=convForwModel.train_model,
-                               arguments_train_function={'epochs_to_train': epochsToTrainCIFAR10,
-                                                         'initial_learning_rate':0.1,
+                               arguments_train_function={'epochs_to_train': epochsToTrain,
+                                                         'initial_learning_rate':0.01,
                                                          'print_every':50,
                                                          'learning_rate_style':'cifar100',
                                                          'weight_decayL2': 0.0005},
                                train_loader=train_loader, test_loader=test_loader)
-try:
-    teacherModel.load_state_dict(cifar10Manager.load_model_state_dict(teacher_model_name))
-except:
-    teacherModel.load_state_dict(mhf.convert_state_dict_from_data_parallel(
-        cifar10Manager.load_model_state_dict(teacher_model_name)))
+
+teacherModel.load_state_dict(torch.load("./DANN18/models/mnist_mnistm_model_epoch_current_dict.pth"))
 
 
 # smaller and distilled
-smallerOptions = {'widen_factor':22, 'depth':16, 'dropout_rate':0.3, 'num_classes':10}
 
-smaller_model_name = 'cifar10_smaller_model'
-smaller_model_path = os.path.join(cifar10modelsFolder, smaller_model_name)
-smallerModel = Wide_ResNet(**smallerOptions)
+smaller_model_name = 'dann18_smaller_model'
+smaller_model_path = os.path.join(dann18modelsFolder, smaller_model_name)
+smallerModel = SmallCNNModel()
 if USE_CUDA: smallerModel = smallerModel.cuda()
 if NUM_GPUS > 1: smallerModel = torch.nn.parallel.DataParallel(smallerModel)
-if not smaller_model_name in cifar10Manager.saved_models:
-    cifar10Manager.add_new_model(smaller_model_name, smaller_model_path,
-                                 arguments_creator_function=smallerOptions)
+if not smaller_model_name in dann18Manager.saved_models:
+    dann18Manager.add_new_model(smaller_model_name, smaller_model_path)
 if TRAIN_SMALLER_MODEL:
-    cifar10Manager.train_model(smallerModel, model_name=smaller_model_name,
+    dann18Manager.train_model(smallerModel, model_name=smaller_model_name,
                                train_function=convForwModel.train_model,
-                               arguments_train_function={'epochs_to_train': epochsToTrainCIFAR10,
+                               arguments_train_function={'epochs_to_train': epochsToTrain,
                                                          'print_every':50,
-                                                         'initial_learning_rate':0.1,
+                                                         'initial_learning_rate':0.01,
                                                          'learning_rate_style':'cifar100',
                                                          'weight_decayL2':0.0005},
                                train_loader=train_loader, test_loader=test_loader)
 #smallerModel.load_state_dict(cifar10Manager.load_model_state_dict(smaller_model_name))
 del smallerModel
 
-distilled_model_name = 'cifar10_distilled_model'
-distilled_model_path = os.path.join(cifar10modelsFolder, distilled_model_name)
-distilledModel = Wide_ResNet(**smallerOptions)
+distilled_model_name = 'dann18_distilled_model'
+distilled_model_path = os.path.join(dann18modelsFolder, distilled_model_name)
+distilledModel = SmallCNNModel()
 if USE_CUDA: distilledModel = distilledModel.cuda()
 if NUM_GPUS > 1: distilledModel = torch.nn.parallel.DataParallel(distilledModel)
-if not distilled_model_name in cifar10Manager.saved_models:
-    cifar10Manager.add_new_model(distilled_model_name, distilled_model_path,
-                                 arguments_creator_function=smallerOptions)
+if not distilled_model_name in dann18Manager.saved_models:
+    dann18Manager.add_new_model(distilled_model_name, distilled_model_path)
 if TRAIN_DISTILLED_MODEL:
-    cifar10Manager.train_model(distilledModel, model_name=distilled_model_name,
+    dann18Manager.train_model(distilledModel, model_name=distilled_model_name,
                                train_function=convForwModel.train_model,
-                               arguments_train_function={'epochs_to_train': epochsToTrainCIFAR10,
+                               arguments_train_function={'epochs_to_train': epochsToTrain,
                                                          'print_every':50,
-                                                         'initial_learning_rate':0.1,
+                                                         'initial_learning_rate':0.01,
                                                          'learning_rate_style':'cifar100',
                                                          'weight_decayL2':0.0005,
                                                          'teacher_model': teacherModel,
@@ -137,24 +129,23 @@ numBits = [2, 4]
 for numBit in numBits:
     distilled_quantized_model_name = 'cifar10_distilled_quantized{}bits'.format(numBit)
 
-    distilled_quantized_model_path = os.path.join(cifar10modelsFolder, distilled_quantized_model_name)
-    distilled_quantized_model = Wide_ResNet(**smallerOptions)
+    distilled_quantized_model_path = os.path.join(dann18modelsFolder, distilled_quantized_model_name)
+    distilled_quantized_model = SmallCNNModel()
     if USE_CUDA: distilled_quantized_model = distilled_quantized_model.cuda()
     if NUM_GPUS > 1: distilled_quantized_model = torch.nn.parallel.DataParallel(distilled_quantized_model)
-    if not distilled_quantized_model_name in cifar10Manager.saved_models:
-        cifar10Manager.add_new_model(distilled_quantized_model_name, distilled_quantized_model_path,
-                                     arguments_creator_function=smallerOptions)
+    if not distilled_quantized_model_name in dann18Manager.saved_models:
+        dann18Manager.add_new_model(distilled_quantized_model_name, distilled_quantized_model_path)
     if TRAIN_DISTILLED_QUANTIZED_MODEL:
-        cifar10Manager.train_model(distilled_quantized_model, model_name=distilled_quantized_model_name,
+        dann18Manager.train_model(distilled_quantized_model, model_name=distilled_quantized_model_name,
                                    train_function=convForwModel.train_model,
-                                   arguments_train_function={'epochs_to_train': epochsToTrainCIFAR10,
+                                   arguments_train_function={'epochs_to_train': epochsToTrain,
                                                              'teacher_model': teacherModel,
                                                              'use_distillation_loss': True,
                                                              'quantizeWeights':True,
                                                              'numBits':numBit,
                                                              'bucket_size':256,
                                                              'print_every':50,
-                                                             'initial_learning_rate':0.1,
+                                                             'initial_learning_rate':0.01,
                                                              'learning_rate_style':'cifar100',
                                                              'weight_decayL2':0.0005,
                                                              'quantize_first_and_last_layer':False},
@@ -165,30 +156,30 @@ for numBit in numBits:
 del teacherModel
 
 def load_model_from_name(x):
-    opt = cifar10Manager.load_metadata(x, 0)[0]
-    #small old bug in the saving of metadata, this is a cheap trick to remedy it
-    for key, val in opt.items():
-        if isinstance(val, str):
-            opt[key] = eval(val)
-    model = Wide_ResNet(**opt)
+    # opt = dann18Manager.load_metadata(x, 0)[0]
+    # #small old bug in the saving of metadata, this is a cheap trick to remedy it
+    # for key, val in opt.items():
+    #     if isinstance(val, str):
+    #         opt[key] = eval(val)
+    model = SmallCNNModel()
     if USE_CUDA: model = model.cuda()
     try:
-        model.load_state_dict(cifar10Manager.load_model_state_dict(x))
+        model.load_state_dict(dann18Manager.load_model_state_dict(x))
     except:
         model.load_state_dict(mhf.convert_state_dict_from_data_parallel(
-            cifar10Manager.load_model_state_dict(x)))
+            dann18Manager.load_model_state_dict(x)))
     return model
 
-for x in cifar10Manager.list_models():
-    if cifar10Manager.get_num_training_runs(x) == 0:
+for x in dann18Manager.list_models():
+    if dann18Manager.get_num_training_runs(x) == 0:
         continue
     model = load_model_from_name(x)
-    reported_accuracy = cifar10Manager.load_metadata(x)[1]['predictionAccuracy'][-1]
+    reported_accuracy = dann18Manager.load_metadata(x)[1]['predictionAccuracy'][-1]
     #pred_accuracy = cnn_hf.evaluateModel(model, test_loader, fastEvaluation=False)
     pred_accuracy=0
     print('Model "{}" ==> Prediction accuracy: {:2f}% == Reported accuracy: {:2f}%'.format(x,
                                                         pred_accuracy*100, reported_accuracy*100))
-    curr_num_bit = cifar10Manager.load_metadata(x)[0].get('numBits', None)
+    curr_num_bit = dann18Manager.load_metadata(x)[0].get('numBits', None)
     if curr_num_bit is not None:
         quant_fun = functools.partial(quantization.uniformQuantization, s=2**curr_num_bit, bucket_size=256)
         actual_bit_huffmman = qhf.get_huffman_encoding_mean_bit_length(model.parameters(), quant_fun,
@@ -206,10 +197,10 @@ for x in cifar10Manager.list_models():
         if 'distilled' in x and 'quant' not in x:
             for numBit in numBits:
                 try:
-                    model.load_state_dict(cifar10Manager.load_model_state_dict(x))
+                    model.load_state_dict(dann18Manager.load_model_state_dict(x))
                 except:
                     model.load_state_dict(mhf.convert_state_dict_from_data_parallel(
-                        cifar10Manager.load_model_state_dict(x)))
+                        dann18Manager.load_model_state_dict(x)))
                 numParam = sum(1 for _ in model.parameters())
                 for idx, p in enumerate(model.parameters()):
                     if idx == 0 or idx == numParam - 1:

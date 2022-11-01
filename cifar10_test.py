@@ -97,9 +97,11 @@ smallerModelSpec2 = {'spec_conv_layers': [(25, 5, 5), (10, 5, 5), (10, 5, 5), (5
                     'spec_dropout_rates': [(1, 0.2), (3, 0.3), (4, 0.4)],
                     'spec_linear': [300], 'width': 32, 'height': 32}
 
-smallerModelSpecs = [smallerModelSpec0, smallerModelSpec1, smallerModelSpec2]
+# smallerModelSpecs = [smallerModelSpec0, smallerModelSpec1, smallerModelSpec2]
+smallerModelSpecs = [smallerModelSpec0]
 
 # distilled + quantized better than quantized:
+numBits = [4, 2]
 # for numBit in numBits:
 #     if numBit == 8:continue
 #     model_name = 'cifar10_smaller_spec0_quantized{}bitsNoBucketing'.format(numBit)
@@ -132,8 +134,8 @@ deeper_student_spec = {'spec_conv_layers': [(76, 3, 3), (76, 3, 3),(76, 3, 3), (
                     'spec_dropout_rates': [(2, 0.2), (5, 0.3), (10, 0.35), (11, 0.4), (12, 0.4)],
                     'spec_linear': [1000, 1000, 1000], 'width': 32, 'height': 32}
 
-numBits = [4, 2]
-#train normal distilled
+# numBits = [4, 2]
+# # train normal distilled
 # model = convForwModel.ConvolForwardNet(**deeper_student_spec,
 #                                        useBatchNorm=USE_BATCH_NORM,
 #                                        useAffineTransformInBatchNorm=AFFINE_BATCH_NORM)

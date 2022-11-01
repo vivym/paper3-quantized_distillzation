@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as Functional
 import time
 import torch.optim as optim
-from torch.nn.init import xavier_uniform, calculate_gain
+from torch.nn.init import xavier_uniform_, calculate_gain
 import math
 import copy
 import numpy as np
@@ -83,7 +83,7 @@ class ConvolForwardNet(nn.Module):
             padding = ((kernel_size[0]-1)//2, (kernel_size[1]-1)//2)
             newConvLayer = nn.Conv2d(in_channels=oldNumChannels, out_channels=numFilters,
                                                                     kernel_size=kernel_size, padding=padding)
-            xavier_uniform(newConvLayer.weight, calculate_gain('conv2d')) #glorot weight initialization
+            xavier_uniform_(newConvLayer.weight, calculate_gain('conv2d')) #glorot weight initialization
             self.conv_layers.append(newConvLayer)
             self.batchNormalizationLayers.append(nn.BatchNorm2d(numFilters,
                                                             affine=useAffineTransformInBatchNorm))
@@ -114,7 +114,7 @@ class ConvolForwardNet(nn.Module):
         for idx in range(len(spec_linear)):
             currNumFeatures = spec_linear[idx]
             newLinearLayer = nn.Linear(in_features=oldInputFeatures, out_features=currNumFeatures)
-            xavier_uniform(newLinearLayer.weight, calculate_gain('linear'))  # glorot weight initialization
+            xavier_uniform_(newLinearLayer.weight, calculate_gain('linear'))  # glorot weight initialization
             self.linear_layers.append(newLinearLayer)
             self.batchNormalizationLayers.append(nn.BatchNorm1d(currNumFeatures,
                                                                                  affine=useAffineTransformInBatchNorm))
@@ -122,7 +122,7 @@ class ConvolForwardNet(nn.Module):
 
         #final output layer
         self.out_layer = nn.Linear(in_features=oldInputFeatures, out_features=10)
-        xavier_uniform(self.out_layer.weight, calculate_gain('linear'))
+        xavier_uniform_(self.out_layer.weight, calculate_gain('linear'))
 
 
         self.conv_layers = nn.ModuleList(self.conv_layers)
@@ -369,6 +369,7 @@ def train_model(model, train_loader, test_loader, initial_learning_rate = 0.001,
                 except:pass
 
     except Exception as e:
+        raise e
         print('An exception occurred: {}\n. Training has been stopped after {} epochs.'.format(e, epoch))
         informationDict['errorFlag'] = True
         informationDict['numEpochsTrained'] = epoch-start_epoch

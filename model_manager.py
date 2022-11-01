@@ -27,9 +27,9 @@ class ModelManager(object):
             except Exception as e:
                 raise ValueError('Unable to load model from "{}". Exception: {}'.format(save_file, e))
         else:
-            if os.path.exists(save_file):
-                raise ValueError('The file specified "{}" already exists. '
-                                 'Choose another one'.format(save_file))
+            # if os.path.exists(save_file):
+            #     raise ValueError('The file specified "{}" already exists. '
+            #                      'Choose another one'.format(save_file))
 
             if not isinstance(name, str):
                 raise ValueError('"name" parameter must be a string')
@@ -206,11 +206,11 @@ class ModelManager(object):
         if model_name in self.saved_models:
             raise ValueError('The model name "{}" is already present. Choose a new name'.format(model_name))
         # add model的时候也不允许存储model预计存储路径已经存在了
-        if os.path.exists(path_to_save):
-            raise ValueError('The path specified "{}" already exists. Choose a new one'.format(path_to_save))
+        # if os.path.exists(path_to_save):
+        #     raise ValueError('The path specified "{}" already exists. Choose a new one'.format(path_to_save))
 
         #create the empty file for consistency
-        with open(path_to_save, 'wb') as _: pass
+        # with open(path_to_save, 'wb') as _: pass
         path_to_save_metadata = path_to_save + '_metadata'
         infoDict = {}
         self.save_metadata((arguments_creator_function, infoDict), path_to_save_metadata)
